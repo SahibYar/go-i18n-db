@@ -91,7 +91,7 @@ func TestFlattenJSON(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := FlattenJSON(tt.input)
+			result := FlattenJSON(tt.input, "|")
 			if !reflect.DeepEqual(result, tt.expected) {
 				t.Errorf("got %+v, want %+v", result, tt.expected)
 			}

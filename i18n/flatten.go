@@ -6,22 +6,26 @@ import (
 	"os"
 )
 
-// FlattenJSON flattens a nested map into a flat map with pipe-separated keys.
-func FlattenJSON(input map[string]interface{}) map[string]string {
+// FlattenJSON flattens a nested map into a flat map using the given delimiter.
+// If delimiter is empty, it defaults to "."
+func FlattenJSON(input map[string]interface{}, delimiter string) map[string]string {
+	if delimiter == "" {
+		delimiter = "."
+	}
 	flatMap := make(map[string]string)
-	flattenRecursive("", input, flatMap)
+	flattenRecursive("", input, flatMap, delimiter)
 	return flatMap
 }
 
-func flattenRecursive(prefix string, m map[string]interface{}, flatMap map[string]string) {
+func flattenRecursive(prefix string, m map[string]interface{}, flatMap map[string]string, delimiter string) {
 	for k, v := range m {
 		fullKey := k
 		if prefix != "" {
-			fullKey = prefix + "|" + k
+			fullKey = prefix + delimiter + k
 		}
 		switch child := v.(type) {
 		case map[string]interface{}:
-			flattenRecursive(fullKey, child, flatMap)
+			flattenRecursive(fullKey, child, flatMap, delimiter)
 		case string:
 			flatMap[fullKey] = child
 		default:
@@ -40,5 +44,5 @@ func LoadAndFlatten(filePath string) (map[string]string, error) {
 	if err := json.Unmarshal(bytes, &nested); err != nil {
 		return nil, err
 	}
-	return FlattenJSON(nested), nil
+	return FlattenJSON(nested, ""), nil
 }
