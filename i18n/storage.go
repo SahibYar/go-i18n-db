@@ -3,10 +3,8 @@ package i18n
 import (
 	"context"
 	"fmt"
-	"strings"
-	_ "time"
-
 	"github.com/jackc/pgx/v5"
+	"time"
 )
 
 // UpsertTranslations inserts or updates translations in bulk using pgx.
@@ -15,35 +13,46 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 		return nil
 	}
 
-	valueStrings := []string{}
-	valueArgs := []interface{}{}
-	argCounter := 1
+	rows := make([][]any, 0, len(translations))
+	now := time.Now()
 
 	for _, t := range translations {
-		userIDPlaceholder := "NULL"
+		var userID any = nil
 		if t.UserID != nil {
-			valueArgs = append(valueArgs, *t.UserID)
-			userIDPlaceholder = fmt.Sprintf("$%d", argCounter)
-			argCounter++
+			userID = *t.UserID
 		}
-
-		valueArgs = append(valueArgs, t.KeyPath, t.Lang, t.Value)
-		valueStrings = append(valueStrings, fmt.Sprintf("(%s, $%d, $%d, $%d, NOW())",
-			userIDPlaceholder,
-			argCounter, argCounter+1, argCounter+2,
-		))
-		argCounter += 3
+		rows = append(rows, []any{
+			userID,
+			t.KeyPath,
+			t.Lang,
+			t.Value,
+			now,
+		})
 	}
 
-	query := fmt.Sprintf(`
-		INSERT INTO ui_translations (user_id, key_path, lang, value, updated_at)
-		VALUES %s
-		ON CONFLICT (user_id, key_path, lang)
-		DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()
-	`, strings.Join(valueStrings, ", "))
+	// Perform COPY INTO a temporary table
+	_, err := conn.CopyFrom(
+		ctx,
+		pgx.Identifier{"ui_translations_temp"},
+		[]string{"user_id", "key_path", "lang", "value", "updated_at"},
+		pgx.CopyFromRows(rows),
+	)
+	if err != nil {
+		return fmt.Errorf("copy to temp table failed: %w", err)
+	}
 
-	_, err := conn.Exec(ctx, query, valueArgs...)
-	return err
+	// Upsert from temp table into actual table
+	_, err = conn.Exec(ctx, `
+		INSERT INTO ui_translations (user_id, key_path, lang, value, updated_at)
+		SELECT user_id, key_path, lang, value, updated_at FROM ui_translations_temp
+		ON CONFLICT (user_id, key_path, lang)
+		DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;
+	`)
+	if err != nil {
+		return fmt.Errorf("upsert from temp table failed: %w", err)
+	}
+
+	return nil
 }
 
 // GetTranslation retrieves a translation with fallback using pgx.
@@ -62,24 +71,34 @@ func GetTranslation(ctx context.Context, conn *pgx.Conn, userID *string, keyPath
 
 // ExportToJSON retrieves all translations and returns a flat map using pgx.
 func ExportToJSON(ctx context.Context, conn *pgx.Conn, lang string, userID *string) (map[string]string, error) {
-	query := `
+	const query = `
 		SELECT key_path, value FROM ui_translations
 		WHERE lang = $1 AND (user_id = $2 OR user_id IS NULL)
 		ORDER BY user_id NULLS LAST
 	`
+
 	rows, err := conn.Query(ctx, query, lang, userID)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("query failed: %w", err)
 	}
 	defer rows.Close()
 
-	result := make(map[string]string)
-	for rows.Next() {
-		var key, value string
-		if err := rows.Scan(&key, &value); err != nil {
-			return nil, err
+	result := make(map[string]string, 128) // Preallocate with a reasonable initial capacity
+
+	for {
+		key, value := "", ""
+		if !rows.Next() {
+			break
+		}
+		if err = rows.Scan(&key, &value); err != nil {
+			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
 		result[key] = value
 	}
+
+	if rows.Err() != nil {
+		return nil, fmt.Errorf("row iteration error: %w", rows.Err())
+	}
+
 	return result, nil
 }
