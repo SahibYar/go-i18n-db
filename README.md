@@ -119,10 +119,10 @@ Table view + in-place editing of all translations.
 ## 🙌 Contributing
 
 Pull requests and GitHub issues are welcome! You can contribute:
-	•	New database support (e.g., MySQL, SQLite)
-	•	More CLI features
-	•	UI admin tool
-	•	Better test coverage
+* New database support (e.g., MySQL, SQLite)
+* More CLI features
+* UI admin tool
+* Better test coverage
 
 ## 📄 License
 
