@@ -3,6 +3,7 @@ package i18n
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 )
 
 // UpsertTranslations inserts or updates translations in bulk.
@@ -33,7 +34,7 @@ func UpsertTranslations(db *sql.DB, translations []Translation) error {
 		))
 	}
 
-	stmt := fmt.Sprintf(query, joinComma(valueStrings))
+	stmt := fmt.Sprintf(query, strings.Join(valueStrings, ", "))
 	_, err := db.Exec(stmt, valueArgs...)
 	return err
 }
@@ -74,19 +75,4 @@ func ExportToJSON(db *sql.DB, lang string, userID *string) (map[string]string, e
 		result[key] = value
 	}
 	return result, nil
-}
-
-func joinComma(strs []string) string {
-	return fmt.Sprintf("%s", stringJoin(strs, ", "))
-}
-
-func stringJoin(strs []string, sep string) string {
-	out := ""
-	for i, s := range strs {
-		if i > 0 {
-			out += sep
-		}
-		out += s
-	}
-	return out
 }
