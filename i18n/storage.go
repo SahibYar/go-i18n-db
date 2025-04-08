@@ -96,10 +96,10 @@ func GetTranslation(ctx context.Context, conn *pgx.Conn, userID *string, keyPath
 	return value, err
 }
 
-// ExportToFlatJSON retrieves all translations and returns a flat map using pgx.
-func ExportToFlatJSON(ctx context.Context, conn *pgx.Conn, lang string, userID *string) (map[string]string, error) {
+// ExportToFlatJSON retrieves all translations and returns a flat map using pgx, including tooltips.
+func ExportToFlatJSON(ctx context.Context, conn *pgx.Conn, lang string, userID *string) (map[string]map[string]string, error) {
 	const query = `
-		SELECT key_path, value FROM ui_translations
+		SELECT key_path, value, tooltip FROM ui_translations
 		WHERE lang = $1 AND (user_id = $2 OR user_id IS NULL)
 		ORDER BY user_id NULLS LAST
 	`
@@ -110,17 +110,21 @@ func ExportToFlatJSON(ctx context.Context, conn *pgx.Conn, lang string, userID *
 	}
 	defer rows.Close()
 
-	result := make(map[string]string, 128) // Preallocate with a reasonable initial capacity
+	result := make(map[string]map[string]string, 128) // Preallocate with a reasonable initial capacity
 
 	for {
-		key, value := "", ""
+		key, value, tooltip := "", "", ""
 		if !rows.Next() {
 			break
 		}
-		if err = rows.Scan(&key, &value); err != nil {
+		if err = rows.Scan(&key, &value, &tooltip); err != nil {
 			return nil, fmt.Errorf("failed to scan row: %w", err)
 		}
-		result[key] = value
+		// Store both value and tooltip in the result map
+		result[key] = map[string]string{
+			"value":   value,
+			"tooltip": tooltip,
+		}
 	}
 
 	if rows.Err() != nil {

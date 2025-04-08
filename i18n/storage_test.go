@@ -11,7 +11,7 @@ import (
 // Setup PostgreSQL connection (use an environment variable for connection string)
 var connString = "postgresql://postgres:fuzzyfog33@localhost:5455/ui_db?search_path=development_ui&sslmode=disable"
 
-// TestExportToJSON tests the ExportToJSON function
+// TestExportToFlatJSON tests the ExportToFlatJSON function
 func TestExportToFlatJSON(t *testing.T) {
 	// Connect to the test database
 	conn, err := pgx.Connect(context.Background(), connString)
@@ -24,13 +24,13 @@ func TestExportToFlatJSON(t *testing.T) {
 	user1ID := uuid.New()
 	user2ID := uuid.New()
 
-	// Insert test data into the ui_translations table
+	// Insert test data into the ui_translations table, including tooltips
 	_, err = conn.Exec(context.Background(), `
-		INSERT INTO ui_translations (user_id, key_path, lang, value, updated_at)
+		INSERT INTO ui_translations (user_id, key_path, lang, value, tooltip, updated_at)
 		VALUES 
-			($1, 'topbar.profile', 'en', 'Profile', NOW()), 
-			(NULL, 'topbar.profile', 'es', 'Perfil', NOW()), 
-			($1, 'footer.contact', 'en', 'Contact', NOW())
+			($1, 'topbar.profile', 'en', 'Profile', 'Your profile', NOW()), 
+			(NULL, 'topbar.profile', 'es', 'Perfil', 'Perfil en español', NOW()), 
+			($1, 'footer.contact', 'en', 'Contact', 'Contact us', NOW())
 	`, user1ID)
 	if err != nil {
 		t.Fatalf("Failed to insert test data: %v", err)
@@ -40,14 +40,17 @@ func TestExportToFlatJSON(t *testing.T) {
 	translations, err := ExportToFlatJSON(context.Background(), conn, "en", stringPtr(user1ID.String()))
 	assert.NoError(t, err)
 	assert.NotNil(t, translations)
-	assert.Equal(t, "Profile", translations["topbar.profile"])
-	assert.Equal(t, "Contact", translations["footer.contact"])
+	assert.Equal(t, "Profile", translations["topbar.profile"]["value"])
+	assert.Equal(t, "Contact", translations["footer.contact"]["value"])
+	assert.Equal(t, "Your profile", translations["topbar.profile"]["tooltip"])
+	assert.Equal(t, "Contact us", translations["footer.contact"]["tooltip"])
 
 	// Test: Fetch translations without user ID (fallback to NULL user)
-	translations, err = ExportToFlatJSON(context.Background(), conn, "en", nil)
+	translations, err = ExportToFlatJSON(context.Background(), conn, "es", nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, translations)
-	assert.Equal(t, "", translations["topbar.profile"])
+	assert.Equal(t, "Perfil", translations["topbar.profile"]["value"])
+	assert.Equal(t, "Perfil en español", translations["topbar.profile"]["tooltip"])
 
 	// Cleanup test data
 	defer func() {
@@ -59,7 +62,6 @@ func TestExportToFlatJSON(t *testing.T) {
 		}
 	}()
 }
-
 func stringPtr(s string) *string {
 	return &s
 }
