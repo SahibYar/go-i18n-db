@@ -13,6 +13,30 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 		return nil
 	}
 
+	// Create the temporary table if it doesn't exist
+	_, err := conn.Exec(ctx, `
+		CREATE TEMPORARY TABLE IF NOT EXISTS ui_translations_temp (
+			user_id UUID,
+			key_path TEXT,
+			lang TEXT,
+			value TEXT,
+			updated_at TIMESTAMP
+		);
+	`)
+	if err != nil {
+		return fmt.Errorf("failed to create temporary table: %w", err)
+	}
+
+	// Defer cleanup: Drop the temporary table after the function completes
+	defer func() {
+		_, err := conn.Exec(ctx, "DROP TABLE IF EXISTS ui_translations_temp")
+		if err != nil {
+			// Log the error but do not return it from the deferred function
+			fmt.Printf("failed to drop temporary table: %v\n", err)
+		}
+	}()
+
+	// Prepare rows to be inserted
 	rows := make([][]any, 0, len(translations))
 	now := time.Now()
 
@@ -30,8 +54,8 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 		})
 	}
 
-	// Perform COPY INTO a temporary table
-	_, err := conn.CopyFrom(
+	// Perform COPY INTO the temporary table
+	_, err = conn.CopyFrom(
 		ctx,
 		pgx.Identifier{"ui_translations_temp"},
 		[]string{"user_id", "key_path", "lang", "value", "updated_at"},
@@ -41,7 +65,7 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 		return fmt.Errorf("copy to temp table failed: %w", err)
 	}
 
-	// Upsert from temp table into actual table
+	// Perform the UPSERT operation using the data from the temporary table
 	_, err = conn.Exec(ctx, `
 		INSERT INTO ui_translations (user_id, key_path, lang, value, updated_at)
 		SELECT user_id, key_path, lang, value, updated_at FROM ui_translations_temp
@@ -52,6 +76,7 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 		return fmt.Errorf("upsert from temp table failed: %w", err)
 	}
 
+	// No need to manually drop the table here, as it's handled by the deferred function
 	return nil
 }
 
