@@ -5,5 +5,6 @@ type Translation struct {
 	UserID  *string // nil = global/default translation
 	Lang    string
 	KeyPath string
+	ToolTip string
 	Value   string
 }

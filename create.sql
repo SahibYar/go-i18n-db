@@ -1,10 +1,15 @@
-CREATE TABLE ui_translations (
-     id SERIAL PRIMARY KEY,
-     user_id UUID,                    -- Nullable: system-wide if NULL
-     key_path TEXT NOT NULL,          -- Flattened key e.g., 'topbar.profile'
-     lang TEXT NOT NULL,              -- Language code: 'en', 'es', 'ar', etc.
-     value TEXT NOT NULL,
-     updated_at TIMESTAMPTZ DEFAULT NOW(),
-     updated_by UUID,            -- Nullable: system-wide if NULL
-     UNIQUE (user_id, key_path, lang)
+CREATE TABLE ui_translations
+(
+    id          SERIAL PRIMARY KEY,
+    user_id     UUID,
+    key_path    TEXT NOT NULL,
+    lang        TEXT NOT NULL,
+    value       TEXT NOT NULL,
+    tooltip     TEXT NULL,
+    updated_at  TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
+    updated_by  UUID,
+    unique (user_id, key_path, lang)
 );
+
+ALTER TABLE ui_translations
+    OWNER TO postgres;
