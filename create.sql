@@ -5,5 +5,6 @@ CREATE TABLE ui_translations (
      lang TEXT NOT NULL,              -- Language code: 'en', 'es', 'ar', etc.
      value TEXT NOT NULL,
      updated_at TIMESTAMPTZ DEFAULT NOW(),
+     updated_by UUID,            -- Nullable: system-wide if NULL
      UNIQUE (user_id, key_path, lang)
 );

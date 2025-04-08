@@ -20,7 +20,7 @@ func UpsertTranslations(db *sql.DB, translations []Translation) error {
 
 	valueStrings := []string{}
 	valueArgs := []interface{}{}
-	for i, t := range translations {
+	for _, t := range translations {
 		userIDPlaceholder := "NULL"
 		if t.UserID != nil {
 			valueArgs = append(valueArgs, *t.UserID)
