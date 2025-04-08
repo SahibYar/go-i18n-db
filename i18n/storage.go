@@ -94,8 +94,8 @@ func GetTranslation(ctx context.Context, conn *pgx.Conn, userID *string, keyPath
 	return value, err
 }
 
-// ExportToJSON retrieves all translations and returns a flat map using pgx.
-func ExportToJSON(ctx context.Context, conn *pgx.Conn, lang string, userID *string) (map[string]string, error) {
+// ExportToFlatJSON retrieves all translations and returns a flat map using pgx.
+func ExportToFlatJSON(ctx context.Context, conn *pgx.Conn, lang string, userID *string) (map[string]string, error) {
 	const query = `
 		SELECT key_path, value FROM ui_translations
 		WHERE lang = $1 AND (user_id = $2 OR user_id IS NULL)

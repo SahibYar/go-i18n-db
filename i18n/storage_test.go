@@ -12,7 +12,7 @@ import (
 var connString = "postgresql://postgres:fuzzyfog33@localhost:5455/ui_db?search_path=development_ui&sslmode=disable"
 
 // TestExportToJSON tests the ExportToJSON function
-func TestExportToJSON(t *testing.T) {
+func TestExportToFlatJSON(t *testing.T) {
 	// Connect to the test database
 	conn, err := pgx.Connect(context.Background(), connString)
 	if err != nil {
@@ -37,14 +37,14 @@ func TestExportToJSON(t *testing.T) {
 	}
 
 	// Test: Fetch translations with user ID 'user1'
-	translations, err := ExportToJSON(context.Background(), conn, "en", stringPtr(user1ID.String()))
+	translations, err := ExportToFlatJSON(context.Background(), conn, "en", stringPtr(user1ID.String()))
 	assert.NoError(t, err)
 	assert.NotNil(t, translations)
 	assert.Equal(t, "Profile", translations["topbar.profile"])
 	assert.Equal(t, "Contact", translations["footer.contact"])
 
 	// Test: Fetch translations without user ID (fallback to NULL user)
-	translations, err = ExportToJSON(context.Background(), conn, "en", nil)
+	translations, err = ExportToFlatJSON(context.Background(), conn, "en", nil)
 	assert.NoError(t, err)
 	assert.NotNil(t, translations)
 	assert.Equal(t, "", translations["topbar.profile"])
