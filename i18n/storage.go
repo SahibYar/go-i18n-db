@@ -13,13 +13,14 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 		return nil
 	}
 
-	// Create the temporary table if it doesn't exist
+	// Create the temporary table if it doesn't exist, including tooltip
 	_, err := conn.Exec(ctx, `
 		CREATE TEMPORARY TABLE IF NOT EXISTS ui_translations_temp (
 			user_id UUID,
 			key_path TEXT,
 			lang TEXT,
 			value TEXT,
+			tooltip TEXT,
 			updated_at TIMESTAMP
 		);
 	`)
@@ -36,7 +37,7 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 		}
 	}()
 
-	// Prepare rows to be inserted
+	// Prepare rows to be inserted, now including tooltip
 	rows := make([][]any, 0, len(translations))
 	now := time.Now()
 
@@ -50,6 +51,7 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 			t.KeyPath,
 			t.Lang,
 			t.Value,
+			t.ToolTip, // Include the tooltip field
 			now,
 		})
 	}
@@ -58,7 +60,7 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 	_, err = conn.CopyFrom(
 		ctx,
 		pgx.Identifier{"ui_translations_temp"},
-		[]string{"user_id", "key_path", "lang", "value", "updated_at"},
+		[]string{"user_id", "key_path", "lang", "value", "tooltip", "updated_at"},
 		pgx.CopyFromRows(rows),
 	)
 	if err != nil {
@@ -67,10 +69,10 @@ func UpsertTranslations(ctx context.Context, conn *pgx.Conn, translations []Tran
 
 	// Perform the UPSERT operation using the data from the temporary table
 	_, err = conn.Exec(ctx, `
-		INSERT INTO ui_translations (user_id, key_path, lang, value, updated_at)
-		SELECT user_id, key_path, lang, value, updated_at FROM ui_translations_temp
+		INSERT INTO ui_translations (user_id, key_path, lang, value, tooltip, updated_at)
+		SELECT user_id, key_path, lang, value, tooltip, updated_at FROM ui_translations_temp
 		ON CONFLICT (user_id, key_path, lang)
-		DO UPDATE SET value = EXCLUDED.value, updated_at = EXCLUDED.updated_at;
+		DO UPDATE SET value = EXCLUDED.value, tooltip = EXCLUDED.tooltip, updated_at = EXCLUDED.updated_at;
 	`)
 	if err != nil {
 		return fmt.Errorf("upsert from temp table failed: %w", err)

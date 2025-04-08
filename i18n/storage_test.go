@@ -85,61 +85,65 @@ func TestUpsertTranslations(t *testing.T) {
 		}
 	}()
 
-	// Test 1: Insert new translations for user1 and user2
+	// Test 1: Insert new translations with tooltips for user1 and user2
 	translations := []Translation{
-		{UserID: stringPtr(user1ID.String()), KeyPath: "topbar.profile", Lang: "en", Value: "Profile"},
-		{UserID: stringPtr(user1ID.String()), KeyPath: "footer.contact", Lang: "en", Value: "Contact"},
-		{UserID: stringPtr(user2ID.String()), KeyPath: "topbar.profile", Lang: "es", Value: "Perfil"},
-		{UserID: stringPtr(user2ID.String()), KeyPath: "footer.contact", Lang: "es", Value: "Contacto"},
+		{UserID: stringPtr(user1ID.String()), KeyPath: "topbar.profile", Lang: "en", Value: "Profile", ToolTip: "Your profile"},
+		{UserID: stringPtr(user1ID.String()), KeyPath: "footer.contact", Lang: "en", Value: "Contact", ToolTip: "Contact us"},
+		{UserID: stringPtr(user2ID.String()), KeyPath: "topbar.profile", Lang: "es", Value: "Perfil", ToolTip: "Tu perfil"},
+		{UserID: stringPtr(user2ID.String()), KeyPath: "footer.contact", Lang: "es", Value: "Contacto", ToolTip: "Contáctanos"},
 	}
 
 	err = UpsertTranslations(context.Background(), conn, translations)
 	assert.NoError(t, err)
 
-	// Verify if the translations were inserted
-	var value string
+	// Verify if the translations and tooltips were inserted
+	var value, tooltip string
 	err = conn.QueryRow(context.Background(), `
-		SELECT value FROM ui_translations WHERE user_id = $1 AND key_path = $2 AND lang = $3
-	`, user1ID, "topbar.profile", "en").Scan(&value)
+		SELECT value, tooltip FROM ui_translations WHERE user_id = $1 AND key_path = $2 AND lang = $3
+	`, user1ID, "topbar.profile", "en").Scan(&value, &tooltip)
 	assert.NoError(t, err)
 	assert.Equal(t, "Profile", value)
+	assert.Equal(t, "Your profile", tooltip)
 
-	// Test 2: Update existing translations for user1
+	// Test 2: Update existing translations with new tooltips for user1
 	updatedTranslations := []Translation{
-		{UserID: stringPtr(user1ID.String()), KeyPath: "topbar.profile", Lang: "en", Value: "Updated Profile"},
+		{UserID: stringPtr(user1ID.String()), KeyPath: "topbar.profile", Lang: "en", Value: "Updated Profile", ToolTip: "Updated profile tooltip"},
 	}
 
 	err = UpsertTranslations(context.Background(), conn, updatedTranslations)
 	assert.NoError(t, err)
 
-	// Verify if the translation was updated
+	// Verify if the translation and tooltip were updated
 	err = conn.QueryRow(context.Background(), `
-		SELECT value FROM ui_translations WHERE user_id = $1 AND key_path = $2 AND lang = $3
-	`, user1ID, "topbar.profile", "en").Scan(&value)
+		SELECT value, tooltip FROM ui_translations WHERE user_id = $1 AND key_path = $2 AND lang = $3
+	`, user1ID, "topbar.profile", "en").Scan(&value, &tooltip)
 	assert.NoError(t, err)
 	assert.Equal(t, "Updated Profile", value)
+	assert.Equal(t, "Updated profile tooltip", tooltip)
 
-	// Test 3: Bulk insertion of translations for user1 and user2
+	// Test 3: Bulk insertion of translations with tooltips for user1 and user2
 	bulkTranslations := []Translation{
-		{UserID: stringPtr(user1ID.String()), KeyPath: "topbar.welcome", Lang: "en", Value: "Welcome"},
-		{UserID: stringPtr(user2ID.String()), KeyPath: "topbar.welcome", Lang: "es", Value: "Bienvenido"},
-		{UserID: stringPtr(user1ID.String()), KeyPath: "footer.privacy", Lang: "en", Value: "Privacy"},
-		{UserID: stringPtr(user2ID.String()), KeyPath: "footer.privacy", Lang: "es", Value: "Privacidad"},
+		{UserID: stringPtr(user1ID.String()), KeyPath: "topbar.welcome", Lang: "en", Value: "Welcome", ToolTip: "Welcome to our site"},
+		{UserID: stringPtr(user2ID.String()), KeyPath: "topbar.welcome", Lang: "es", Value: "Bienvenido", ToolTip: "Bienvenido a nuestro sitio"},
+		{UserID: stringPtr(user1ID.String()), KeyPath: "footer.privacy", Lang: "en", Value: "Privacy", ToolTip: "Privacy settings"},
+		{UserID: stringPtr(user2ID.String()), KeyPath: "footer.privacy", Lang: "es", Value: "Privacidad", ToolTip: "Configuración de privacidad"},
 	}
 
 	err = UpsertTranslations(context.Background(), conn, bulkTranslations)
 	assert.NoError(t, err)
 
-	// Verify bulk insertion
+	// Verify bulk insertion with tooltips
 	err = conn.QueryRow(context.Background(), `
-		SELECT value FROM ui_translations WHERE user_id = $1 AND key_path = $2 AND lang = $3
-	`, user1ID, "topbar.welcome", "en").Scan(&value)
+		SELECT value, tooltip FROM ui_translations WHERE user_id = $1 AND key_path = $2 AND lang = $3
+	`, user1ID, "topbar.welcome", "en").Scan(&value, &tooltip)
 	assert.NoError(t, err)
 	assert.Equal(t, "Welcome", value)
+	assert.Equal(t, "Welcome to our site", tooltip)
 
 	err = conn.QueryRow(context.Background(), `
-		SELECT value FROM ui_translations WHERE user_id = $1 AND key_path = $2 AND lang = $3
-	`, user2ID, "topbar.welcome", "es").Scan(&value)
+		SELECT value, tooltip FROM ui_translations WHERE user_id = $1 AND key_path = $2 AND lang = $3
+	`, user2ID, "topbar.welcome", "es").Scan(&value, &tooltip)
 	assert.NoError(t, err)
 	assert.Equal(t, "Bienvenido", value)
+	assert.Equal(t, "Bienvenido a nuestro sitio", tooltip)
 }
