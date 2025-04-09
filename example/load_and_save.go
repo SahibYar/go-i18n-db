@@ -1,14 +1,15 @@
 package example
 
 import (
-	"database/sql"
+	"context"
+	"github.com/jackc/pgx/v5"
 	"go-i18n-db/i18n"
 	"path/filepath"
 	"strings"
 )
 
 // LoadAndSave loads a JSON file, flattens it, and saves to DB.
-func LoadAndSave(db *sql.DB, filePath string, lang string, userID *string) error {
+func LoadAndSave(conn *pgx.Conn, filePath string, lang string, userID *string) error {
 	// Step 1: Load and flatten the JSON
 	flatMap, err := i18n.LoadAndFlatten(filePath)
 	if err != nil {
@@ -26,16 +27,16 @@ func LoadAndSave(db *sql.DB, filePath string, lang string, userID *string) error
 		})
 	}
 
-	// Step 3: Bulk upsert to database
-	return i18n.UpsertTranslations(db, translations)
+	// Step 3: Bulk upsert to a database
+	return i18n.UpsertTranslations(context.Background(), conn, translations)
 }
 
 // LoadAndSaveAutoLang Optional helper: load from file path and auto-extract language
-func LoadAndSaveAutoLang(db *sql.DB, filePath string, userID *string) error {
+func LoadAndSaveAutoLang(conn *pgx.Conn, filePath string, userID *string) error {
 	// Guess language from filename like "en.json"
 	base := filepath.Base(filePath)
 	ext := filepath.Ext(base)
 	lang := strings.TrimSuffix(base, ext)
 
-	return LoadAndSave(db, filePath, lang, userID)
+	return LoadAndSave(conn, filePath, lang, userID)
 }
